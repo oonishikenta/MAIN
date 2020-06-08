@@ -1,0 +1,121 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows.Forms;
+using System.Threading;
+
+namespace Simulator
+{
+    public partial class ProcessDialog : Form
+    {
+        [DllImport("KERNEL32.DLL")]
+        public static extern uint
+            GetPrivateProfileString(string lpAppName, string lpKeyName, string lpDefault, StringBuilder lpReturnedString, uint nSize, string lpFileName);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint WritePrivateProfileString(string lpApplicationName, string lpKeyName, string lpstring, string lpFileName);
+
+        private bool _endFlag = false;
+
+        public Cmd Command;
+
+        public ProcessDialog()
+        {
+            this.InitializeComponent();
+        }
+
+        private void btnStop_Click(object sender, EventArgs e)
+        {
+            var fPath = System.IO.Path.Combine(Properties.Settings.Default.SettingPath, "Com.ini");
+            WritePrivateProfileString("Pattern", "StopFlag", "True", fPath);
+            this._endFlag = true;
+        }
+
+        private void ProcessDialog_Load(object sender, EventArgs e)
+        {
+            var myThread = new Thread(new ThreadStart(ThreadMain));
+            myThread.Start();
+        }
+
+        public string GetIniValue(string path, string section, string key)
+        {
+            StringBuilder sb = new StringBuilder(256);
+            GetPrivateProfileString(section, key, string.Empty, sb, Convert.ToUInt32(sb.Capacity), path);
+            return sb.ToString();
+        }
+
+        private void ThreadMain()
+        {
+            while (true)
+            {
+                if (this._endFlag == true)
+                {
+                    break;
+                }
+
+                var fPath = System.IO.Path.Combine(Properties.Settings.Default.SettingPath, "Com.ini");
+                var exeFlag = this.GetIniValue(fPath, "Pattern", "ExecuteFlag");
+                if (exeFlag == "False")
+                {
+                    Thread.Sleep(10);
+                    continue;
+                }
+
+                var pat = this.GetIniValue(fPath, "Pattern", "Pat");
+                var oneSen = this.GetIniValue(fPath, "Pattern", "1Sen");
+                var twoSen = this.GetIniValue(fPath, "Pattern", "2Sen");
+                var fiveSen = this.GetIniValue(fPath, "Pattern", "5Sen");
+                var oneMan = this.GetIniValue(fPath, "Pattern", "1Man");
+
+                if (Command.Maisu[2] == "4")
+                {
+                    break;
+                }
+
+                if (Command.FileName == "Nyukin")
+                {
+                    if (Command.Maisu[0] == "999")
+                    {
+
+                    }
+                    else
+                    {
+                        if (pat != "Syukkin")
+                        {
+                            WritePrivateProfileString("Pattern", "StopFlag", "True", fPath);
+                            Thread.Sleep(10);
+                            break;
+                        }
+                    }
+                }
+
+                if (Command.FileName == "Syukkin")
+                {
+                    if (pat != "Nyukin")
+                    {
+                        WritePrivateProfileString("Pattern", "StopFlag", "True", fPath);
+                        Thread.Sleep(10);
+                        break;
+                    }
+                }
+
+                WritePrivateProfileString("Pattern", "Result", "OK", fPath);
+
+                Thread.Sleep(10);
+
+                break;
+            }
+            this.Invoke(new Action(() => this.Close()));
+        }
+
+        private void ProcessDialog_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            
+        }
+    }
+}
